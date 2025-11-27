@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Image Detection</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='img_style.css') }}">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <div class="buttons">
+    <a href="/"><button>Home</button></a>
+    <a href="/video_page"><button>Video Detection</button></a>
+    <a href="/cctv_page"><button>CCtv Detection</button></a>
+    <a href="/webcam_page"><button>Webcam Detection</button></a>
+  </div>
+
+  <h2>Image Detection with Target Setting</h2>
+
+  <!-- Target Section -->
+  <div class="target-section">
+    <p id="target-feedback">
+      {% if target_message %}{{ target_message }}{% else %}No target set. Detecting all objects.{% endif %}
+    </p>
+      <br>
+    <input type="text" id="target-input" placeholder="e.g., person, car, gun" />
+    <button onclick="setTarget()">Set Target</button>
+  </div>
+
+  <!-- Image Upload -->
+  <form action="/image" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept="image/*" required />
+    <button type="submit">Detect</button>
+  </form>
+
+  <!-- Result -->
+  <div class="result">
+    {% if result_image %}
+      <h3>Result:</h3>
+      <img src="data:image/jpeg;base64,{{ result_image }}" alt="Detection Result" />
+      <div id="alert-box">{{ alert_message }}</div>
+    {% else %}
+      <div id="alert-box"></div>
+    {% endif %}
+  </div>
+
+  <script>
+    function setTarget() {
+      const input = document.getElementById('target-input').value;
+      fetch('/set_target', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'targets=' + encodeURIComponent(input)
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('target-feedback').innerText = data.message;
+      });
+    }
+  </script>
+
+</body>
+</html>

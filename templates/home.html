@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='home_style.css') }}">
+</head>
+<body>
+
+<h1>Security Surveillance System</h1>
+
+<div class="container">
+  <!-- LEFT SIDE -->
+  <div class="left">
+      <div class="mail-config">
+        <p>Email details to get Alerts</p>
+        <br>
+        <!-- Email + Password Form -->
+        <form action="/save_emails" method="POST" class="email-form">
+
+          <label for="sender">Sender Email: </label>
+          <input type="email" id="sender" name="sender_email" 
+                placeholder=" example@gmail.com" required>
+          <br>
+          <br>
+          <label for="sender_password">App Password: </label>
+          <input type="password" id="sender_password" name="sender_password" 
+                placeholder=" Enter your Gmail App Password" required>
+          <br>
+          <br>
+          <label for="receiver">Receiver Email: </label>
+          <input type="email" id="receiver" name="receiver_email" 
+                placeholder=" Email that receives alerts" required>
+          <br>
+          <br>
+          <button type="submit">Save Email Settings</button>
+        </form>
+          <br>
+        {% if email_message %}
+          <p style="color: green; margin-top: 10px;">{{ email_message }}</p>
+        {% endif %}
+      </div>
+  </div>
+
+  <!-- RIGHT SIDE -->
+  <div class="right">
+      <nav class="buttons">
+        <a href="/image"><button>Image Detection</button></a>
+        <a href="/video_page"><button>Video Detection</button></a>
+        <a href="/webcam_page"><button>Webcam Detection</button></a>
+        <a href="/cctv_page"><button>Cctv Detection</button></a>
+      </nav>
+  </div>
+
+</div>
+
+</body>
+</html>

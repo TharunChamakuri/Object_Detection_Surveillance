@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webcam Detection</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='webcam_style.css') }}">
+</head>
+<body>
+
+  <!-- Navigation Buttons -->
+  <div class="buttons" id="top-buttons">
+    <a href="/"><button>Home</button></a>
+    <a href="/image"><button>Image Detection</button></a>
+    <a href="/video_page"><button>Video Detection</button></a>
+    <a href="/cctv_page"><button>CCTV Detection</button></a>
+  </div>
+
+  <h2>Webcam Detection</h2>
+
+  <!-- Target Input Section -->
+  <div id="controls">
+    <div>
+      <input type="text" id="target-input" placeholder="Enter target objects (comma-separated)">
+      <button id="set-target-btn">Set Target</button>
+    </div>
+    <div id="current-target">{{ target_message }}</div>
+  </div>
+
+  <!-- Start/Stop Buttons -->
+  <button id="start-btn">Start Detection</button>
+  <button id="stop-btn">Stop</button>
+
+  <!-- Video/Canvas Container -->
+  <div id="video-container">
+    <canvas id="video-stream"></canvas>
+    <div id="alert-box"></div>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById("start-btn");
+    const stopBtn = document.getElementById("stop-btn");
+    const targetInput = document.getElementById("target-input");
+    const setTargetBtn = document.getElementById("set-target-btn");
+    const currentTarget = document.getElementById("current-target");
+    const alertBox = document.getElementById("alert-box");
+    const canvas = document.getElementById("video-stream");
+    const ctx = canvas.getContext("2d");
+    const container = document.getElementById("video-container");
+
+    let stream;
+    let processing = false;
+    let interval;
+    let lastFrameTime = 0;
+
+    // Start detection
+    startBtn.onclick = async () => {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      await new Promise(resolve => video.onloadedmetadata = resolve);
+
+      // Enter fullscreen detection mode
+      document.body.classList.add("fullscreen-mode");
+      canvas.style.display = "block";
+      alertBox.style.display = "block";
+      stopBtn.style.display = "inline-block";
+
+      // Hide page elements
+      document.querySelector("#top-buttons").style.display = "none";
+      document.querySelector("#controls").style.display = "none";
+      startBtn.style.display = "none";
+
+      processing = true;
+      processFrames(video);
+      interval = setInterval(fetchAlert, 500);
+    };
+
+    // Stop detection
+    stopBtn.onclick = () => {
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      processing = false;
+      clearInterval(interval);
+
+      // Exit fullscreen
+      document.body.classList.remove("fullscreen-mode");
+
+      // Show original page elements
+      document.querySelector("#top-buttons").style.display = "flex";
+      document.querySelector("#controls").style.display = "flex";
+      startBtn.style.display = "inline-block";
+
+      canvas.style.display = "none";
+      alertBox.style.display = "none";
+      stopBtn.style.display = "none";
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+
+    // Set detection targets
+    setTargetBtn.onclick = () => {
+      const targets = targetInput.value.trim();
+      fetch("/set_target", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "targets=" + encodeURIComponent(targets)
+      })
+      .then(res => res.json())
+      .then(data => {
+        currentTarget.innerText = data.message;
+        targetInput.value = "";
+      });
+    };
+
+    // Process frames
+    async function processFrames(video) {
+      if (!processing) return;
+
+      const now = Date.now();
+      if (now - lastFrameTime < 200) {
+        requestAnimationFrame(() => processFrames(video));
+        return;
+      }
+      lastFrameTime = now;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const dataURL = canvas.toDataURL("image/jpeg");
+
+      try {
+        const response = await fetch("/webcam_feed", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "frame=" + encodeURIComponent(dataURL)
+        });
+        const data = await response.json();
+
+        if (data.processed_frame) {
+          const img = new Image();
+          img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          img.src = "data:image/jpeg;base64," + data.processed_frame;
+        }
+
+        if (data.alert) {
+          alertBox.style.display = "block";
+          alertBox.innerText = data.alert;
+        } else {
+          alertBox.style.display = "none";
+          alertBox.innerText = "";
+        }
+      } catch (err) {
+        console.error("Frame processing error:", err);
+      }
+
+      requestAnimationFrame(() => processFrames(video));
+    }
+
+    // Fetch alerts periodically
+    function fetchAlert() {
+      fetch("/get_alert")
+        .then(res => res.json())
+        .then(data => {
+          if (data.alert) {
+            alertBox.style.display = "block";
+            alertBox.innerText = data.alert;
+          } else {
+            alertBox.style.display = "none";
+            alertBox.innerText = "";
+          }
+        });
+    }
+  </script>
+</body>
+</html>

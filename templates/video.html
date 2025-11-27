@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Video Detection</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='video_style.css') }}">
+</head>
+<body>
+
+  <!-- Controls -->
+  <div id="controls">
+    <div class="buttons" id="top-buttons">
+      <a href="/"><button>Home</button></a>
+      <a href="/image"><button>Image Detection</button></a>
+      <a href="/cctv_page"><button>Cctv Detection</button></a>
+      <a href="/webcam_page"><button>Webcam Detection</button></a>
+    </div>
+
+    <!-- Target Input -->
+    <div>
+      <input type="text" id="target-input" placeholder="Enter targets, comma separated"/>
+      <button type="button" onclick="setTarget()">Set Target</button>
+    </div>
+
+    <!-- Current Target Display -->
+    <div id="current-target">
+      Current Target: {{ target_message }}
+    </div>
+
+    <!-- Video Upload Form -->
+    <form id="upload-form" action="/video" method="post" enctype="multipart/form-data">
+      <input type="file" name="file" accept="video/*" required>
+      <button type="submit" id="start-btn">Start Detection</button>
+    </form>
+  </div>
+
+  <!-- Stop Button -->
+  <button id="stop-btn" onclick="stopVideo()" style="display:none;">Stop Video</button>
+
+  <!-- Video Container -->
+  <div id="video-container">
+    <img id="video-stream" style="display:none;" alt="Video stream"/>
+    <div id="alert-box"></div>
+  </div>
+
+<script>
+const controlsDiv = document.getElementById("controls");
+const videoStream = document.getElementById("video-stream");
+const stopBtn = document.getElementById("stop-btn");
+const alertBox = document.getElementById("alert-box");
+const targetInput = document.getElementById("target-input");
+const currentTargetDiv = document.getElementById("current-target");
+
+let isStreaming = false;
+
+// Start Video Detection
+document.getElementById("upload-form").addEventListener("submit", function(event) {
+  event.preventDefault();
+  const formData = new FormData(this);
+
+  fetch("/video", { method: "POST", body: formData })
+    .then(response => {
+      if (response.ok) {
+        controlsDiv.style.display = "none";
+        stopBtn.style.display = "block";
+        videoStream.style.display = "block";
+        videoStream.src = "/video_feed";
+        isStreaming = true;
+      } else {
+        alert("Failed to start video");
+      }
+    });
+});
+
+// Stop Video Detection
+function stopVideo() {
+  fetch("/stop_video")
+    .then(res => res.text())
+    .then(msg => alert(msg));
+
+  controlsDiv.style.display = "block";
+  stopBtn.style.display = "none";
+  videoStream.style.display = "none";
+  videoStream.src = "";
+  alertBox.style.display = "none";
+  isStreaming = false;
+}
+
+// Fetch Alerts
+setInterval(() => {
+  if (isStreaming) {
+    fetch("/get_alert")
+      .then(res => res.json())
+      .then(data => {
+        if (data.alert) {
+          alertBox.innerText = data.alert;
+          alertBox.style.display = "block";
+        } else {
+          alertBox.style.display = "none";
+        }
+      });
+  }
+}, 200);
+
+// Set Target
+function setTarget() {
+  const targets = targetInput.value.trim();
+  if (!targets) return;
+
+  fetch("/set_target", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "targets=" + encodeURIComponent(targets)
+  })
+  .then(res => res.json())
+  .then(data => {
+    currentTargetDiv.innerText = "Current Target: " + data.message;
+    targetInput.value = "";
+  });
+}
+</script>
+
+</body>
+</html>
