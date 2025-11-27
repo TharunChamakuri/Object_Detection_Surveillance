@@ -38,12 +38,6 @@ video_path = ""
 # BROWSER WEBCAM
 webcam_running = False
 
-# CCTV / RTSP
-cctv_running = False
-rtsp_link = ""
-latest_cctv_frame = None
-cctv_lock = threading.Lock()
-
 # -----------------------------
 # EMAIL FUNCTIONS
 # -----------------------------
@@ -265,71 +259,6 @@ def webcam_feed():
         return jsonify({"error": str(e)}), 500
 
 # -----------------------------
-# CCTV / RTSP DETECTION
-# -----------------------------
-@app.route("/cctv_page")
-def cctv_page():
-    return render_template("cctv.html", target_message=current_target_text)
-
-def cctv_capture_thread():
-    global latest_cctv_frame, cctv_running, rtsp_link
-    cap = cv2.VideoCapture(rtsp_link)
-    frame_skip = 2
-    count = 0
-    while cctv_running:
-        success, frame = cap.read()
-        if not success or frame is None:
-            cap.release()
-            time.sleep(2)
-            cap = cv2.VideoCapture(rtsp_link)
-            continue
-        count += 1
-        if count % frame_skip != 0:
-            with cctv_lock:
-                latest_cctv_frame = frame
-            continue
-        h, w = frame.shape[:2]
-        scale = 640 / max(h, w)
-        small_frame = cv2.resize(frame, (int(w*scale), int(h*scale)))
-        detected_frame = detect_objects(small_frame)
-        detected_frame = cv2.resize(detected_frame, (w, h))
-        with cctv_lock:
-            latest_cctv_frame = detected_frame
-    cap.release()
-
-@app.route("/start_rtsp", methods=["POST"])
-def start_rtsp():
-    global rtsp_link, cctv_running, session_email_sent
-    session_email_sent = False
-    rtsp_link = request.form.get("rtsp")
-    if not rtsp_link:
-        return "RTSP link missing", 400
-    if not cctv_running:
-        cctv_running = True
-        threading.Thread(target=cctv_capture_thread, daemon=True).start()
-    return "OK"
-
-@app.route("/rtsp_feed")
-def rtsp_feed():
-    def generate_frames():
-        global latest_cctv_frame, cctv_running
-        while cctv_running:
-            with cctv_lock:
-                frame = latest_cctv_frame.copy() if latest_cctv_frame is not None else None
-            if frame is not None:
-                _, buffer = cv2.imencode(".jpg", frame)
-                yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
-            else:
-                time.sleep(0.01)
-    return Response(generate_frames(), mimetype="multipart/x-mixed-replace; boundary=frame")
-
-@app.route("/stop_cctv")
-def stop_cctv():
-    global cctv_running
-    cctv_running = False
-    return "CCTV stopped"
-
-# -----------------------------
 # ALERT FETCH API
 # -----------------------------
 @app.route("/get_alert")
@@ -343,5 +272,3 @@ if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=False, host="0.0.0.0", port=port)
-
-
