@@ -1,8 +1,10 @@
-setuptools
-wheel
-Flask==2.3.3
-numpy==1.24.3
-Pillow==10.0.0
-opencv-python-headless==4.8.0.76
-ultralytics==8.0.195
+Flask==3.0.3
 gunicorn==21.2.0
+
+ultralytics==8.3.0
+opencv-python-headless==4.9.0.80
+
+numpy==1.26.4
+Pillow==10.2.0
+
+python-multipart==0.0.9
